@@ -24,6 +24,10 @@ This will create a binary named `distinct-kmers` and add it to your `PATH`.
 - [x] parallel local counting using [`rayon`](https://crates.io/crates/rayon)
 - [x] faster hash using [`FxHash`](https://crates.io/crates/rustc-hash)
 
+Failed attempts:
+- [ ] using [`boxcar`](https://crates.io/crates/boxcar) for concurrent buckets (vectors with mutex ended up being faster)
+- [ ] using [`mimalloc`](https://crates.io/crates/mimalloc) (no improvement over the default allocator)
+
 ## Acknowledgement
 
 This simple tool was initially inspired by https://github.com/pierrepeterlongo/unique_kmer_counter.
