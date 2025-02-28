@@ -17,7 +17,6 @@ This will create a binary named `distinct-kmers` and add it to your `PATH`.
 ## Optimizations
 
 - [x] native build with [LTO](https://nnethercote.github.io/perf-book/build-configuration.html#link-time-optimization)
-- [x] custom allocator using [`mimalloc`](https://crates.io/crates/mimalloc)
 - [x] compute local counts using super-k-mer buckets
 - [x] SIMD computation of super-k-mers using [`simd-minimizers`](https://crates.io/crates/simd-minimizers)
 - [x] transparent decompression using [`niffler`](https://crates.io/crates/niffler)

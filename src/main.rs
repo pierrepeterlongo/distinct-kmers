@@ -1,7 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
 use core::array::from_fn;
-use mimalloc::MiMalloc;
 use niffler::send::from_path;
 use packed_seq::{PackedSeqVec, Seq, SeqVec};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -15,9 +14,6 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::Instant;
-
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
 
 type KT = u64;
 type SKT = u128; // together as one
