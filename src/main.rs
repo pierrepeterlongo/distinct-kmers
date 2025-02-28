@@ -1,5 +1,4 @@
 use anyhow::Result;
-use boxcar::Vec as V;
 use clap::Parser;
 use core::array::from_fn;
 use mimalloc::MiMalloc;
@@ -14,17 +13,20 @@ use seq_io_parallel::{MinimalRefRecord, ParallelProcessor, ParallelReader};
 use simd_minimizers::minimizer_and_superkmer_positions;
 use std::collections::HashSet;
 use std::path::Path;
+use std::sync::Mutex;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
 type KT = u64;
 type SKT = u128; // together as one
+type Bucket = Mutex<Vec<SKT>>;
 
-const SHARD_BASES: usize = 5;
+const SHARD_BASES: usize = 8;
 const SHARDS: usize = 1 << (2 * SHARD_BASES);
 const SKLEN_BITS: usize = 6;
 const SKLEN_MASK: SKT = (1 << SKLEN_BITS) - 1;
+const BUCKET_CAP: usize = (8 << 30) / (SHARDS * SKT::BITS as usize);
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -47,7 +49,7 @@ struct Args {
 pub struct SuperkmerCollector<'a> {
     k: usize,
     m: usize,
-    buckets: &'a [V<SKT>; SHARDS],
+    buckets: &'a [Bucket; SHARDS],
     match_n: &'a Regex,
     match_newline: &'a Regex,
     min_pos_vec: Vec<u32>,
@@ -96,7 +98,7 @@ impl ParallelProcessor for SuperkmerCollector<'_> {
                     let right = packed_seq.slice(sk_mid..sk_range.end).to_word() as SKT;
                     let skmer = (((right << (2 * (sk_mid - sk_range.start))) | left) << SKLEN_BITS)
                         | (sk_range.len() as SKT); // little-endian order
-                    self.buckets[shard].push(skmer);
+                    self.buckets[shard].lock().unwrap().push(skmer);
                     min_pos = next_min_pos;
                     sk_pos = next_sk_pos;
                 }
@@ -111,7 +113,7 @@ fn collect_superkmers<P: AsRef<Path>>(
     m: usize,
     path: P,
     threads: usize,
-) -> [V<SKT>; SHARDS] {
+) -> [Bucket; SHARDS] {
     let match_n = RegexBuilder::new(r"[N]+")
         .case_insensitive(true)
         .unicode(false)
@@ -121,7 +123,7 @@ fn collect_superkmers<P: AsRef<Path>>(
         .unicode(false)
         .build()
         .unwrap();
-    let buckets = from_fn(|_| V::with_capacity(1 << 14));
+    let buckets = from_fn(|_| Bucket::new(Vec::with_capacity(BUCKET_CAP)));
     let processor = SuperkmerCollector {
         k,
         m,
@@ -159,8 +161,9 @@ fn main() {
     let count: usize = buckets
         .into_par_iter()
         .map(|v| {
+            let v = v.into_inner().unwrap();
             let mut set =
-                HashSet::with_capacity_and_hasher(v.count() * (w + 1) * 3 / 5, FxBuildHasher);
+                HashSet::with_capacity_and_hasher(v.len() * (w + 1) * 3 / 5, FxBuildHasher);
             for skmer in v {
                 let len = (skmer & SKLEN_MASK) as usize;
                 let skmer = skmer >> SKLEN_BITS;
