@@ -18,7 +18,7 @@ simd-minimizers = { git = "https://github.com/rust-seq/simd-minimizers.git", bra
 
 [profile.release]
 opt-level = 3
-lto = "thin"
+lto = "fat"
 debug = true
 
 [profile.dev]
