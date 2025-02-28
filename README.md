@@ -23,7 +23,6 @@ This will create a binary named `distinct-kmers` and add it to your `PATH`.
 - [x] transparent decompression using [`niffler`](https://crates.io/crates/niffler)
 - [x] parallel FASTA parsing using [`seq_io_parallel`](https://crates.io/crates/seq_io_parallel)
 - [x] parallel local counting using [`rayon`](https://crates.io/crates/rayon)
-- [x] concurrent buckets using [`boxcar`](https://crates.io/crates/boxcar)
 - [x] faster hash using [`FxHash`](https://crates.io/crates/rustc-hash)
 
 ## Acknowledgement
