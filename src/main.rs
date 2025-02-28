@@ -14,6 +14,7 @@ use simd_minimizers::minimizer_and_superkmer_positions;
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Mutex;
+use std::time::Instant;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -156,8 +157,13 @@ fn main() {
     } else {
         current_num_threads()
     };
+    eprintln!("Running using {threads} threads");
+    let start_collect = Instant::now();
     let buckets = collect_superkmers(k, m, path, threads);
+    let elapsed = start_collect.elapsed().as_secs_f64();
+    eprintln!("Collected super-k-mers in {:.02} s", elapsed);
     let kmer_mask = (1u128 << (2 * k)) - 1;
+    let start_count = Instant::now();
     let count: usize = buckets
         .into_par_iter()
         .map(|v| {
@@ -175,5 +181,7 @@ fn main() {
             set.len()
         })
         .sum();
-    println!("{count} distinct {k}-mers");
+    let elapsed = start_count.elapsed().as_secs_f64();
+    eprintln!("Parallel count in {:.02} s", elapsed);
+    eprintln!("Number of distinct {k}-mers: {count}");
 }
