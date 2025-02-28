@@ -30,5 +30,5 @@ Failed attempts:
 
 ## Acknowledgement
 
-This simple tool was initially inspired by https://github.com/pierrepeterlongo/unique_kmer_counter.
-My goal here was to create an optimized implementation for the same task.
+This tool was inspired by https://github.com/pierrepeterlongo/unique_kmer_counter.
+My goal here was to create a simple yet optimized implementation for the same task.
