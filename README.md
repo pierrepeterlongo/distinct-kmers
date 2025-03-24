@@ -5,8 +5,10 @@ It supports (possibly compressed and multi-line) fasta files and k <= 32.
 
 To use it, simply clone this repository and run
 ```sh
-cargo r -r -- -k <K> -i <FASTA>
+cargo r -r -- -k <K> -i <FASTA/FASTQ/@FOF> --fastq
 ```
+
+In case of File of File, on line per input file in the fof file. Inputs must all be either fastq of fasta. 
 
 Alternatively, you can install the current version locally with
 ```sh

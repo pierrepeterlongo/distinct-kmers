@@ -7,13 +7,15 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use rayon::{current_num_threads, ThreadPoolBuilder};
 use regex::bytes::{Regex, RegexBuilder};
 use rustc_hash::FxBuildHasher;
-use seq_io::fasta;
+use seq_io::{fasta, fastq};
 use seq_io_parallel::{MinimalRefRecord, ParallelProcessor, ParallelReader};
 use simd_minimizers::minimizer_and_superkmer_positions;
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::Instant;
+use std::fs::File;
+use std::io::{self, BufRead};
 
 type KT = u64;
 type SKT = u128; // together as one
@@ -40,6 +42,9 @@ struct Args {
     /// Number of threads [default: all]
     #[arg(short, long)]
     threads: Option<usize>,
+    /// Input is FASTQ
+    #[arg(short, long)]
+    fastq: bool,
 }
 
 #[derive(Clone)]
@@ -105,11 +110,22 @@ impl ParallelProcessor for SuperkmerCollector<'_> {
     }
 }
 
+
+// The output is wrapped in a Result to allow matching on errors.
+// Returns an Iterator to the Reader of the lines of the file.
+fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
+where P: AsRef<Path>, {
+    let file = File::open(filename)?;
+    Ok(io::BufReader::new(file).lines())
+}
+
+
 fn collect_superkmers<P: AsRef<Path>>(
     k: usize,
     m: usize,
     path: P,
     threads: usize,
+    is_fastq: bool,
 ) -> [Bucket; SHARDS] {
     let match_n = RegexBuilder::new(r"[N]+")
         .case_insensitive(true)
@@ -121,19 +137,56 @@ fn collect_superkmers<P: AsRef<Path>>(
         .build()
         .unwrap();
     let buckets = from_fn(|_| Bucket::new(Vec::with_capacity(BUCKET_CAP)));
-    let processor = SuperkmerCollector {
-        k,
-        m,
-        buckets: &buckets,
-        match_n: &match_n,
-        match_newline: &match_newline,
-        min_pos_vec: vec![],
-        sk_pos_vec: vec![],
-    };
-    let (reader, _) = from_path(path).expect("Failed to open input file");
-    let reader = fasta::Reader::new(reader);
-    reader.process_parallel(processor, threads).unwrap();
-    buckets
+    
+    // if path starts with @ this is a file of file names
+    if path.as_ref().to_string_lossy().starts_with('@') {
+        if let Ok(lines) = read_lines(path) {
+            // Consumes the iterator, returns an (Optional) String
+            for local_path in lines.map_while(Result::ok) {
+                println!("Counting for {}", local_path);
+                let (reader, _) = from_path(local_path).expect("Failed to open input file");
+                let processor = SuperkmerCollector {
+                    k,
+                    m,
+                    buckets: &buckets,
+                    match_n: &match_n,
+                    match_newline: &match_newline,
+                    min_pos_vec: vec![],
+                    sk_pos_vec: vec![],
+                };
+                if is_fastq {
+                    let reader = fastq::Reader::new(reader);
+                    reader.process_parallel(processor, threads).unwrap();
+                }
+                else {
+                    let reader = fasta::Reader::new(reader);
+                    reader.process_parallel(processor, threads).unwrap();
+                }
+            }
+        }
+        buckets
+    }
+    else {
+        let processor = SuperkmerCollector {
+            k,
+            m,
+            buckets: &buckets,
+            match_n: &match_n,
+            match_newline: &match_newline,
+            min_pos_vec: vec![],
+            sk_pos_vec: vec![],
+        };
+        let (reader, _) = from_path(path).expect("Failed to open input file");
+        if is_fastq {
+            let reader = fastq::Reader::new(reader);
+            reader.process_parallel(processor, threads).unwrap();
+        }
+        else {
+            let reader = fasta::Reader::new(reader);
+            reader.process_parallel(processor, threads).unwrap();
+        }
+        buckets
+    }
 }
 
 fn main() {
@@ -144,6 +197,7 @@ fn main() {
     assert!(m <= k);
     let w = k - m + 1;
     let path = args.input;
+    let is_fastq = args.fastq;
     let threads = if let Some(t) = args.threads {
         ThreadPoolBuilder::new()
             .num_threads(t)
@@ -155,7 +209,7 @@ fn main() {
     };
     eprintln!("Running using {threads} threads");
     let start_collect = Instant::now();
-    let buckets = collect_superkmers(k, m, path, threads);
+    let buckets = collect_superkmers(k, m, path, threads, is_fastq);
     let elapsed = start_collect.elapsed().as_secs_f64();
     eprintln!("Collected super-k-mers in {:.02} s", elapsed);
     let kmer_mask = (1u128 << (2 * k)) - 1;
