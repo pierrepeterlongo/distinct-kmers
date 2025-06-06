@@ -72,6 +72,8 @@ impl ParallelProcessor for SuperkmerCollector<'_> {
                     packed_seq.push_ascii(line);
                 }
             }
+
+            // println!("packed seq: {:?}", packed_seq);
             let len = packed_seq.len();
             if len >= self.k {
                 self.min_pos_vec.clear();

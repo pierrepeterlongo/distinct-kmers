@@ -12,7 +12,7 @@ In case of File of File, on line per input file in the fof file. Inputs must all
 
 Alternatively, you can install the current version locally with
 ```sh
-RUSTFLAGS="-C target-cpu=native" cargo install -f --git https://github.com/imartayan/distinct-kmers.git
+RUSTFLAGS="-C target-cpu=native" cargo install -f --git https://github.com/pierrepeterlongo/distinct-kmers.git
 ```
 This will create a binary named `distinct-kmers` and add it to your `PATH`.
 
